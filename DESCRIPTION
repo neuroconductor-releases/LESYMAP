@@ -2,31 +2,31 @@ Package: LESYMAP
 Title: Lesion to Symptom Mapping in R
 Version: 0.0.0.9221
 Date: 2019-07-30
-Authors@R: person("Dorian", "Pustina", email='dorian.pustina@chdifoundation.org', role = c("aut", "cre"))
+Authors@R: person("Dorian", "Pustina",
+        email='dorian.pustina@chdifoundation.org', role = c("aut",
+        "cre"))
 Description: LESYMAP maps the specific brain areas responsible for
-    cognitive deficits by taking a series of lesion maps and a vector
-    of behavioral scores. Both univariate (t-test, Brunner-Munzel,
-    regression) and multivariate (sparse canonical corelations) tests are
-    available. LESYMAP is built to run both real and simulated
-    lesion-to-symptom mapping analyses.
+        cognitive deficits by taking a series of lesion maps and a
+        vector of behavioral scores. Both univariate (t-test,
+        Brunner-Munzel, regression) and multivariate (sparse canonical
+        corelations) tests are available. LESYMAP is built to run both
+        real and simulated lesion-to-symptom mapping analyses.
 License: Apache License 2.0 | file LICENSE
 Encoding: UTF-8
 LazyData: true
-Depends:
-    R (>= 3.0),
-    ANTsR
-Imports:
-    ANTsRCore,
-    graphics,
-    lmPerm,
-    Rcpp,
-    stats,
-    utils
-Suggests:
+Depends: R (>= 3.0), ANTsR
+Imports: ANTsRCore, graphics, lmPerm, Rcpp, stats, utils
+Suggests: 
     nparcomp,
-    e1071
-Remotes: ANTsX/ANTsR,
-    ANTsX/ANTsRCore
+    e1071,
+    covr,
+    testthat
 LinkingTo: Rcpp, RcppArmadillo
 NeedsCompilation: yes
 RoxygenNote: 6.1.1.9000
+Additional_repositories: https://neuroconductor.org/releases/2020/10/
+Repository: Neuroconductor-Releases
+Remotes:  
+    neuroconductor-releases/ANTsRCore@f12e0caafa668a69f1aa0821c686ff7937f51167,
+    neuroconductor-releases/ANTsR@d1dacfbca489e0cbde3d806275562aae9108d90a
+biocViews: 

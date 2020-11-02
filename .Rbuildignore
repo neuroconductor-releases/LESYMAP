@@ -3,3 +3,7 @@
 \.travis\.yml$
 _config\.yml$
 LESYMAP\.pdf$
+^DESCRIPTION\.bak$
+^\.travis\.yml$
+^\./\.travis\.yml\.bak$
+^appveyor\.yml$

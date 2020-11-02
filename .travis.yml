@@ -1,70 +1,142 @@
-sudo: required
-latex: false
-warnings_are_errors: false
+language: r
+warnings_are_errors: yes
+cache: packages
+bioc_required: yes
+cran: http://cran.rstudio.com
+dist: xenial
+addons:
+  apt:
+    packages:
+      - libcurl4-openssl-dev
+      - libxml2-dev
+      - libfftw3-dev
+      - libgsl0-dev
+      - mesa-common-dev
+      - libglu1-mesa-dev
+      - devscripts
+      - libomp-dev
+      - libhdf5-serial-dev
+      - libhdf5-dev
 os:
   - linux
   - osx
-compiler:
-  - clang
-
-matrix:
- allow_failures:
-   - r: devel
-   - r: 3.2
-   - r: 3.3
-   - r: 3.4
-   - r: 3.7
-   
-
-
-dist: trusty
-
-language: r
-cache:
-  - timeout: 1000
-  - packages
-  - ccache
-  
+osx_image: xcode9.4
+services: xvfb
 r:
-  - 3.2
-  - 3.3
   - 3.4
   - 3.5
   - 3.6
-  - 3.7
   - release
   - devel
-
+jobs:
+  allow_failures:
+    - r: devel
 env:
   global:
-  - R_BUILD_ARGS=" --no-build-vignettes --no-manual "
-  - R_CHECK_ARGS=" --timings --as-cran --no-manual --install-args=--build"
-  - R_CHECK_TIME="TRUE"
-  - R_CHECK_TESTS="FALSE"
-  - _R_CHECK_TIMINGS_="0"
-  - BOOTSTRAP_LATEX=1
-  - DISPLAY=:99.0
-  - R_REMOTES_NO_ERRORS_FROM_WARNINGS=true
-
+    - R_BUILD_ARGS="--no-manual"
+    - R_CHECK_ARGS="--as-cran --install-args=--build"
+    - RGL_USE_NULL=TRUE
+    - WARNINGS_ARE_ERRORS=1
+    - PROJECT_NAME=neuroconductor-releases
+    - DISPLAY=:99.0
+    - R_REMOTES_NO_ERRORS_FROM_WARNINGS=true
+    - _R_CHECK_FORCE_SUGGESTS_=false
+    - CACHE_NAME="${TRAVIS_OS_NAME}-R-${TRAVIS_R_VERSION}"
 before_install:
+  - if [ "$TRAVIS_DIST" = "trusty" ]; then sudo apt-get -y install libgsl0ldbl ; fi
   - ulimit -n 2048
   - export LD_LIBRARY_PATH=/usr/local/clang/lib:${LD_LIBRARY_PATH}
-  - export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
-  - wget -O antsr_travis.sh http://bit.ly/antsr_travis_sh
-  - chmod +x antsr_travis.sh
-  - . ./antsr_travis.sh
-  - rm antsr_travis.sh
-  - v8_install
-  - Rscript -e "install.packages(c('Rcpp', 'RcppEigen'), type = 'source', repos=c(CRAN='https://cran.rstudio.com'))"
-  - Rscript -e "install.packages( c('magrittr','testthat','knitr','rmarkdown','covr','devtools', 'desc',  'remotes', 'colormap' ), repos=c(CRAN='https://cran.rstudio.com'))"
-  - Rscript -e 'install.packages("rsvd")'
-  - Rscript -e 'install.packages("magic")'
-  - Rscript -e 'install.packages("ggplot2")'
-  - Rscript -e 'install.packages("psych")'
-  - Rscript -e 'install.packages("randomForest")'
-  - Rscript -e "install.packages(c('lmPerm', 'nparcomp', 'RcppArmadillo', 'sandwitch', 'TH.data', 'zoo'), type = 'source', repos=c(CRAN='https://cran.rstudio.com'))"
+  - export PROJ_DIR=`basename $PWD`
+  - echo "travis_wait*\.log$" >> .Rbuildignore
+  - fname=travis_helpers.sh
+  - wget -O ${fname} http://bit.ly/travis_helpers
+  - cat ${fname}; source ${fname}; rm ${fname}
   - cat DESCRIPTION
-  
-after_failure:
-  - cat /home/travis/build/dorianps/LESYMAP/LESYMAP.Rcheck/00install.out
+  - start_xvfb ;
+  - jags_install || true;
+  - if `need_v8`; then v8_install || true; fi
+  - dcmtk_install || true;
+  - gsl_install 2.1 || true ;
+  - export rver=`r_version`; echo $rver ;
+  - export PACKAGE_NAME=`package_name`
+  - export RCHECK_DIR=${PACKAGE_NAME}.Rcheck
+  - remove_neuroc_packages
+  - export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
+  - x=`export_clang_cxx`; eval ${x}
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then no_open_mp ; fi
+  - echo "CC=${CC}, CXX=${CXX}, CXX1X=${CXX1X}"
+  - echo "CXX1XSTD=${CXX1XSTD}, CXX11=${CXX11}"
+  - clang_cxx
+  - export cmake_version="3.11"
+  - cmake --version
+  - x=`cmake_setup`; echo "${x}"; eval ${x};
+  - cmake --version
+  - export ants_user=neuroconductor-releases
+  - if [[ "${PACKAGE_NAME}" == "ITKR" || "${PACKAGE_NAME}" == "ANTsRCore" || "${PACKAGE_NAME}"
+    == "ANTsR" ]]; then Rscript -e "install.packages(c('Rcpp', 'RcppEigen'), type
+    = 'source', repo = 'http://cran.rstudio.com')" ; fi
+  - if [[ "${PACKAGE_NAME}" == "ITKR" || "${PACKAGE_NAME}" == "ANTsRCore" ]]; then
+    export R_BUILD_ARGS="${R_BUILD_ARGS} --no-build-vignettes " ; export R_CHECK_ARGS="--no-vignettes
+    ${R_CHECK_ARGS}" ; fi
+  - if [[ "${PACKAGE_NAME}" != "ITKR" ]]; then echo "Installing Missing Deps ITKR"
+    ; install_missing_remote_deps_all ${ants_user}/ITKR ; gh_binary_install ${ants_user}/ITKR
+    ; fi
+  - if [[ "${PACKAGE_NAME}" != "ANTsRCore" && "${PACKAGE_NAME}" != "ITKR" ]]; then
+    echo "Installing Missing Deps ANTsRCore" ; install_missing_remote_deps_all ${ants_user}/ANTsRCore;
+    gh_binary_install_passive ${ants_user}/ANTsRCore ; fi
+  - if [[ "${PACKAGE_NAME}" != "ANTsRCore" && "${PACKAGE_NAME}" != "ITKR" && "${PACKAGE_NAME}"
+    != "ANTsR" ]]; then echo "Installing Missing Deps ANTsR" ; install_missing_remote_deps_all
+    ${ants_user}/ANTsR ; gh_binary_install_passive ${ants_user}/ANTsR ; fi
+  - if [[ "${PACKAGE_NAME}" == "ANTsR" ]]; then export _R_CHECK_FORCE_SUGGESTS_=false
+    ; fi
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then hdf5_install ; fi
+  - cat DESCRIPTION
+  - install_remotes_no_dep
+  - cat DESCRIPTION
+  - echo $PATH ;
+  - install_deps_no_suggests
+  - setup_python 3.6 false ;
+  - install_python_requirements ;
+  - R CMD javareconf || true ;
+  - sudo R CMD javareconf || true ;
+  - travis_run_cache
+script:
+  - x=`export_clang_cxx`; eval ${x}
+  - travis_wait 100 R CMD build ${R_BUILD_ARGS} .
+  - rm -f travis_wait*.log
+  - PKG_TARBALL=$(ls -1t *.tar.gz | head -n 1)
+  - ls
+  - travis_wait 100 R CMD check ${R_CHECK_ARGS} "${PKG_TARBALL}"; CHECK_RET=$? ;
+  - rm -f travis_wait*.log
+  - if [[ $CHECK_RET -ne 0 ]]; then echo "R CMD check failed"; check_fail; dump_logs;
+    travis_terminate 1; fi
+  - check_warnings
+after_success: dump_logs
+after_failure: dump_logs
+before_deploy:
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then PKG_TARBALL=$(ls -1t *.tgz | head -n 1);
+    PKG_TARBALL_WITH_R=`echo $PKG_TARBALL | sed 's/.tgz/_'"R${rver}"'.tgz/'` ; mv
+    ${PKG_TARBALL} ${PKG_TARBALL_WITH_R} ; echo "Built tarball is ${PKG_TARBALL_WITH_R}"
+    ; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then PKG_TARBALL=$(ls -1t *.tar.gz | head
+    -n 1); PKG_TARBALL_WITH_R=`echo $PKG_TARBALL | sed 's/.tar.gz/_'"R${rver}"'.tar.gz/'`
+    ; mv ${PKG_TARBALL} ${PKG_TARBALL_WITH_R} ; echo "Built tarball is ${PKG_TARBALL_WITH_R}"
+    ; fi
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then rm -f *.tar.gz; fi
+deploy:
+  provider: releases
+  skip_cleanup: yes
+  token: $GITHUB_TOKEN
+  file_glob: yes
+  overwrite: yes
+  file: ${PACKAGE_NAME}*.t*gz
+  'on':
+    tags: yes
+after_deploy:
+  - echo "${PROJECT_NAME}" | grep -q "releases"; if [[ $? -eq 0 ]]; then run_coverage="false";
+    else run_coverage=; fi;
+  - if [[ "${TRAVIS_R_VERSION_STRING}" = "release" ]]; then echo 'covr::coveralls(type
+    = "all", quiet = FALSE)' > neuroc_covr.R ; travis_wait 100 Rscript neuroc_covr.R
+    ; rm neuroc_covr.R ; fi
 
+# neuroc.deps commit id:871f223
